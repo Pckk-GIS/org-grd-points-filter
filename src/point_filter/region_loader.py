@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 from pathlib import Path
 
+from .geometry import convex_hull
 from .models import Point2D, Region
 from .validation import DataFormatError, validate_region_vertices
 
@@ -36,10 +37,8 @@ def load_regions(region_csv: Path) -> list[Region]:
                 f"Region CSV header must be {EXPECTED_HEADER}, got {tuple(header)}"
             )
 
-        regions: list[Region] = []
-        current_region_id: str | None = None
-        current_vertices: list[Point2D] = []
-        seen_region_ids: set[str] = set()
+        region_points: dict[str, list[Point2D]] = {}
+        region_order: list[str] = []
 
         for line_number, row in enumerate(reader, start=2):
             if not row or not any(cell.strip() for cell in row):
@@ -50,6 +49,10 @@ def load_regions(region_csv: Path) -> list[Region]:
                 )
 
             region_id = row[0].strip()
+            if not region_id:
+                raise DataFormatError(
+                    f"Region CSV line {line_number} must have a non-empty region_id"
+                )
             x = _parse_float(
                 row[1].strip(), path=region_csv, line_number=line_number, field_name="x"
             )
@@ -57,40 +60,26 @@ def load_regions(region_csv: Path) -> list[Region]:
                 row[2].strip(), path=region_csv, line_number=line_number, field_name="y"
             )
 
-            if current_region_id is None:
-                current_region_id = region_id
-            elif region_id != current_region_id:
-                if region_id in seen_region_ids:
-                    raise DataFormatError(
-                        f"Region id {region_id!r} appears in non-contiguous blocks"
-                    )
-                ordinal = len(regions) + 1
-                validate_region_vertices(current_vertices, str(ordinal))
-                regions.append(
-                    Region(
-                        ordinal=ordinal,
-                        region_id=current_region_id,
-                        vertices=tuple(current_vertices),
-                    )
-                )
-                seen_region_ids.add(current_region_id)
-                current_region_id = region_id
-                current_vertices = []
+            if region_id not in region_points:
+                region_points[region_id] = []
+                region_order.append(region_id)
 
-            current_vertices.append(Point2D(x=x, y=y))
+            region_points[region_id].append(Point2D(x=x, y=y))
 
-        if current_region_id is None:
+        if not region_order:
             raise DataFormatError(f"Region CSV has no data rows: {region_csv}")
 
-        ordinal = len(regions) + 1
-        validate_region_vertices(current_vertices, str(ordinal))
-        regions.append(
-            Region(
-                ordinal=ordinal,
-                region_id=current_region_id,
-                vertices=tuple(current_vertices),
+        regions: list[Region] = []
+        for ordinal, region_id in enumerate(region_order, start=1):
+            vertices = convex_hull(region_points[region_id])
+            validate_region_vertices(vertices, str(ordinal))
+            regions.append(
+                Region(
+                    ordinal=ordinal,
+                    region_id=region_id,
+                    vertices=vertices,
+                )
             )
-        )
 
     if len(regions) != 3:
         raise DataFormatError(
