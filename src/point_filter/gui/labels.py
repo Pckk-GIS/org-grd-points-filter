@@ -11,10 +11,14 @@ class LabeledText:
 
 WINDOW_TITLE = "点群抽出"
 WINDOW_GEOMETRY = "840x560"
+HELP_WINDOW_TITLE = "使い方"
+HELP_MENU = "ヘルプ"
+HELP_MENU_USAGE = "使い方"
+HELP_MENU_EXIT = "終了"
 
 REGION_CSV = LabeledText(
     label="領域CSV",
-    tooltip="region_id,x,y 形式のCSVを指定します。行順は自由です。",
+    tooltip="region_id,x,y 形式のCSVを指定します。ヘッダ行が必要で、3 領域分の定義を入れます。",
 )
 INPUT_DIR = LabeledText(
     label="入力フォルダ",

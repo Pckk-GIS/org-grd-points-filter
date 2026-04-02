@@ -11,6 +11,7 @@ from ..filter_service import process
 from ..output_writer import write_outputs
 from ..validation import PointFilterError
 from . import labels
+from .help_window import HelpWindow
 from .state import GuiState
 from .view_model import build_app_config, default_state
 from .tooltip import ToolTip
@@ -25,6 +26,7 @@ class MainWindow:
         self.message_queue: queue.Queue[tuple[str, str]] = queue.Queue()
         self.run_button: ttk.Button | None = None
         self._tooltips: list[ToolTip] = []
+        self._help_window: HelpWindow | None = None
 
         default = default_state()
         self.region_csv_var = tk.StringVar(value=default.region_csv)
@@ -35,7 +37,31 @@ class MainWindow:
         self.z_col_var = tk.StringVar(value=default.z_col)
 
         self._build_layout()
+        self._build_menu()
         self.root.after(100, self._poll_messages)
+
+    def _build_menu(self) -> None:
+        menu = tk.Menu(self.root)
+        help_menu = tk.Menu(menu, tearoff=False)
+        help_menu.add_command(label=labels.HELP_MENU_USAGE, command=self._open_help)
+        help_menu.add_separator()
+        help_menu.add_command(label=labels.HELP_MENU_EXIT, command=self.root.destroy)
+        menu.add_cascade(label=labels.HELP_MENU, menu=help_menu)
+        self.root.config(menu=menu)
+
+    def _open_help(self) -> None:
+        if self._help_window is not None and self._help_window.winfo_exists():
+            self._help_window.lift()
+            self._help_window.focus_force()
+            return
+
+        self._help_window = HelpWindow(self.root)
+        self._help_window.protocol("WM_DELETE_WINDOW", self._close_help_window)
+
+    def _close_help_window(self) -> None:
+        if self._help_window is not None:
+            self._help_window.destroy()
+            self._help_window = None
 
     def _build_layout(self) -> None:
         container = ttk.Frame(self.root, padding=16)
