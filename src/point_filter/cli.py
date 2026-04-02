@@ -1,3 +1,5 @@
+"""コマンドライン実行の入口を提供する。"""
+
 from __future__ import annotations
 
 import argparse
@@ -6,11 +8,11 @@ from typing import Sequence
 
 from .config import AppConfig
 from .filter_service import process
-from .output_writer import write_outputs
 from .validation import PointFilterError
 
 
 def build_parser() -> argparse.ArgumentParser:
+    """CLI 引数パーサーを構築する。"""
     parser = argparse.ArgumentParser(description="Extract points into 3 regions.")
     parser.add_argument("--region-csv", type=Path, default=Path("data/regions.csv"))
     parser.add_argument("--input-dir", type=Path, default=Path("input"))
@@ -22,12 +24,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def run(config: AppConfig) -> int:
-    buckets = process(config)
-    write_outputs(config.output_dir, buckets)
+    """設定を受け取り、抽出から出力までを実行する。"""
+    process(config)
     return 0
 
 
 def main(argv: Sequence[str] | None = None) -> int:
+    """CLI のエントリポイントとして引数を解釈する。"""
     parser = build_parser()
     args = parser.parse_args(argv)
     config = AppConfig(

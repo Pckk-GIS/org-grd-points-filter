@@ -1,9 +1,11 @@
+"""領域 CSV を読み込み、凸包の領域列へ変換する。"""
+
 from __future__ import annotations
 
 import csv
 from pathlib import Path
 
-from .geometry import convex_hull
+from .geometry import bounding_box_from_points, convex_hull
 from .models import Point2D, Region
 from .validation import DataFormatError, validate_region_vertices
 
@@ -21,6 +23,7 @@ def _parse_float(value: str, *, path: Path, line_number: int, field_name: str) -
 
 
 def load_regions(region_csv: Path) -> list[Region]:
+    """領域 CSV から 3 領域を読み込む。"""
     if not region_csv.exists():
         raise DataFormatError(f"Region CSV not found: {region_csv}")
 
@@ -78,6 +81,7 @@ def load_regions(region_csv: Path) -> list[Region]:
                     ordinal=ordinal,
                     region_id=region_id,
                     vertices=vertices,
+                    bounding_box=bounding_box_from_points(vertices),
                 )
             )
 

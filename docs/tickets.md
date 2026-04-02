@@ -26,8 +26,9 @@
 | T13 | CLI 結合テスト | 実際の入力フォルダを使って end-to-end を確認する | `tests/integration` 一式 | T11, T12 | 6 ファイル出力、境界点、重なり、異常終了を確認できる |
 | T14 | GUI 雛形作成 | GUI 用の枠組みを作る | `gui/` 配下の雛形 | T13 | GUI の画面骨格を起動できる |
 | T15 | GUI 連携 | GUI から CLI と同じコア処理を呼び出す | `gui/main_window.py`、`gui/state.py`、`gui/view_model.py` | T14 | GUI から同一処理を起動できる |
-| T16 | GUI テスト整備 | GUI の最低限の動作確認を追加する | GUI テスト | T15 | GUI 側の主要導線が確認できる |
-| T17 | PyInstaller 配布設定 | exe 化できるようにビルド設定を整える | `pyinstaller` 依存、`point-filter-gui.spec`、ビルド手順 | T15 | GUI を PyInstaller でビルドできる |
+| T16 | GUI ヘルプ整備 | メニューから使い方を開けるようにする | `gui/help_text.py`、`gui/help_window.py`、メニューバー | T15 | GUI 内で詳細ヘルプを開ける |
+| T17 | GUI テスト整備 | GUI の最低限の動作確認を追加する | GUI テスト | T15, T16 | GUI 側の主要導線が確認できる |
+| T18 | PyInstaller 配布設定 | exe 化できるようにビルド設定を整える | `pyinstaller` 依存、`point-filter-gui.spec`、ビルド手順 | T15, T16 | GUI を PyInstaller でビルドできる |
 
 ## 推奨実装順
 
@@ -48,6 +49,7 @@
 15. T15
 16. T16
 17. T17
+18. T18
 
 ## 分割の考え方
 

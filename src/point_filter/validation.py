@@ -1,3 +1,5 @@
+"""入力値と幾何条件の検証をまとめる。"""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -6,25 +8,26 @@ from .models import Point2D
 
 
 class PointFilterError(Exception):
-    """Base error for point filter failures."""
+    """point_filter 全体で使う基底例外。"""
 
 
 class ConfigurationError(PointFilterError):
-    """Raised when CLI or configuration is invalid."""
+    """CLI や GUI の設定が不正なときに使う。"""
 
 
 class DataFormatError(PointFilterError):
-    """Raised when input data is malformed."""
+    """入力データの形式が壊れているときに使う。"""
 
 
 class GeometryError(PointFilterError):
-    """Raised when a polygon is invalid."""
+    """領域の形状が不正なときに使う。"""
 
 
 EPSILON = 1e-9
 
 
 def require_positive_column_index(value: int, label: str) -> None:
+    """列番号が 1 以上か検証する。"""
     if value < 1:
         raise ConfigurationError(f"{label} column index must be 1 or greater: {value}")
 
@@ -67,6 +70,7 @@ def _segments_intersect(a1: Point2D, a2: Point2D, b1: Point2D, b2: Point2D) -> b
 
 
 def polygon_area(vertices: Sequence[Point2D]) -> float:
+    """多角形の面積を返す。"""
     area2 = 0.0
     for index, current in enumerate(vertices):
         nxt = vertices[(index + 1) % len(vertices)]
@@ -75,6 +79,7 @@ def polygon_area(vertices: Sequence[Point2D]) -> float:
 
 
 def validate_region_vertices(vertices: Sequence[Point2D], region_label: str) -> None:
+    """凸多角形として成立するかを検証する。"""
     if len(vertices) < 3:
         raise GeometryError(f"Region {region_label} must have at least 3 vertices")
 

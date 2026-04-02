@@ -1,14 +1,18 @@
+"""GUI のメインウィンドウを構成する。"""
+
 from __future__ import annotations
 
+from datetime import datetime
+from pathlib import Path
 import queue
 import threading
 import traceback
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext, ttk
+from typing import cast
 
 from ..config import AppConfig
 from ..filter_service import process
-from ..output_writer import write_outputs
 from ..validation import PointFilterError
 from . import labels
 from .help_window import HelpWindow
@@ -18,6 +22,8 @@ from .tooltip import ToolTip
 
 
 class MainWindow:
+    """GUI の 1 画面完結ウィンドウを構成する。"""
+
     def __init__(self, root: tk.Tk) -> None:
         self.root = root
         self.root.title(labels.WINDOW_TITLE)
@@ -38,6 +44,7 @@ class MainWindow:
 
         self._build_layout()
         self._build_menu()
+        self._append_log("GUI を起動しました。")
         self.root.after(100, self._poll_messages)
 
     def _build_menu(self) -> None:
@@ -182,10 +189,115 @@ class MainWindow:
         self.log.configure(state="disabled")
 
     def _append_log(self, message: str) -> None:
+        timestamp = datetime.now().strftime("%H:%M:%S")
         self.log.configure(state="normal")
-        self.log.insert(tk.END, f"{message}\n")
+        self.log.insert(tk.END, f"[{timestamp}] {message}\n")
         self.log.see(tk.END)
         self.log.configure(state="disabled")
+
+    def _format_match_summary(self, matches: dict[int, int]) -> str:
+        parts = [
+            f"region{ordinal}={count}" for ordinal, count in sorted(matches.items())
+        ]
+        return ", ".join(parts)
+
+    def _handle_progress(self, event: str, payload: dict[str, object]) -> None:
+        if event == "regions_loaded":
+            region_count = cast(int, payload["region_count"])
+            self.message_queue.put(
+                (
+                    "log",
+                    labels.STATUS_REGIONS_LOADED.format(region_count=region_count),
+                )
+            )
+            return
+
+        if event == "input_scan":
+            org_files = cast(int, payload["org_files"])
+            grd_files = cast(int, payload["grd_files"])
+            total_files = cast(int, payload["total_files"])
+            self.message_queue.put(
+                (
+                    "log",
+                    labels.STATUS_INPUT_SCAN.format(
+                        org_count=org_files,
+                        grd_count=grd_files,
+                        total_count=total_files,
+                    ),
+                )
+            )
+            return
+
+        if event == "file_start":
+            system = cast(str, payload["system"])
+            path = cast(Path, payload["path"])
+            index = cast(int, payload["index"])
+            total = cast(int, payload["total"])
+            self.message_queue.put(
+                (
+                    "log",
+                    labels.STATUS_FILE_START.format(
+                        system=system,
+                        path=path.name,
+                        index=index,
+                        total=total,
+                    ),
+                )
+            )
+            return
+
+        if event == "file_progress":
+            system = cast(str, payload["system"])
+            path = cast(Path, payload["path"])
+            records = cast(int, payload["records"])
+            self.message_queue.put(
+                (
+                    "log",
+                    labels.STATUS_FILE_PROGRESS.format(
+                        system=system,
+                        path=path.name,
+                        records=records,
+                    ),
+                )
+            )
+            return
+
+        if event == "file_skipped":
+            system = cast(str, payload["system"])
+            path = cast(Path, payload["path"])
+            reason = cast(str, payload["reason"])
+            self.message_queue.put(
+                (
+                    "log",
+                    labels.STATUS_FILE_SKIPPED.format(
+                        system=system,
+                        path=path.name,
+                        reason=reason,
+                    ),
+                )
+            )
+            return
+
+        if event == "file_done":
+            system = cast(str, payload["system"])
+            path = cast(Path, payload["path"])
+            index = cast(int, payload["index"])
+            total = cast(int, payload["total"])
+            records = cast(int, payload["records"])
+            matches = cast(dict[int, int], payload["matches"])
+            self.message_queue.put(
+                (
+                    "log",
+                    labels.STATUS_FILE_DONE.format(
+                        system=system,
+                        path=path.name,
+                        index=index,
+                        total=total,
+                        records=records,
+                        matches=self._format_match_summary(matches),
+                    ),
+                )
+            )
 
     def _current_state(self) -> GuiState:
         return GuiState(
@@ -205,10 +317,19 @@ class MainWindow:
         try:
             config = build_app_config(self._current_state())
         except PointFilterError as exc:
+            self._append_log(f"設定エラー: {exc}")
             messagebox.showerror(labels.ERROR_TITLE, str(exc), parent=self.root)
             return
 
         self._append_log(labels.STATUS_START)
+        self._append_log(labels.STATUS_CONFIG_READY)
+        self._append_log(
+            "設定: "
+            f"領域CSV={config.region_csv}, "
+            f"入力フォルダ={config.input_dir}, "
+            f"出力フォルダ={config.output_dir}, "
+            f"X={config.x_col}, Y={config.y_col}, Z={config.z_col}"
+        )
         self._set_running(True)
 
         thread = threading.Thread(target=self._worker, args=(config,), daemon=True)
@@ -216,8 +337,21 @@ class MainWindow:
 
     def _worker(self, config: AppConfig) -> None:
         try:
-            buckets = process(config)
-            write_outputs(config.output_dir, buckets)
+            report = process(config, progress_callback=self._handle_progress)
+            self.message_queue.put(("log", labels.STATUS_OUTPUT_START))
+            for system, region_map in report.output_counts.items():
+                for ordinal, count in region_map.items():
+                    output_path = config.output_dir / f"{system}_region{ordinal}.txt"
+                    self.message_queue.put(
+                        (
+                            "log",
+                            labels.STATUS_OUTPUT_FILE.format(
+                                path=output_path,
+                                count=count,
+                            ),
+                        )
+                    )
+            self.message_queue.put(("log", labels.STATUS_OUTPUT_DONE))
         except Exception as exc:  # pragma: no cover - forwarded to UI
             self.message_queue.put(("error", f"{exc}\n{traceback.format_exc()}"))
         else:
@@ -237,11 +371,14 @@ class MainWindow:
         try:
             while True:
                 kind, payload = self.message_queue.get_nowait()
-                self._set_running(False)
-                if kind == "success":
+                if kind == "log":
+                    self._append_log(payload)
+                elif kind == "success":
+                    self._set_running(False)
                     self._append_log(payload)
                     messagebox.showinfo(labels.INFO_TITLE, payload, parent=self.root)
                 else:
+                    self._set_running(False)
                     self._append_log(payload)
                     messagebox.showerror(labels.ERROR_TITLE, payload, parent=self.root)
         except queue.Empty:
@@ -251,6 +388,7 @@ class MainWindow:
 
 
 def main() -> int:
+    """GUI アプリケーションを起動する。"""
     root = tk.Tk()
     MainWindow(root)
     root.mainloop()

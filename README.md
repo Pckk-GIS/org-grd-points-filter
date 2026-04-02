@@ -14,6 +14,12 @@ uv run python main.py --region-csv data/regions.csv --input-dir input --output-d
 uv run point-filter-gui
 ```
 
+GUI にはメニューバーの `ヘルプ > 使い方` があり、単体で渡しても使える程度の詳細ヘルプを参照できます。
+
+## GUI の入口
+
+PyInstaller 向けの GUI 起動入口は `gui_main.py` です。配布ビルドではこの入口を参照します。
+
 ## exe 化
 
 ```bash

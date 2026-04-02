@@ -1,9 +1,13 @@
+"""Tkinter ウィジェットにツールチップを付与する。"""
+
 from __future__ import annotations
 
 import tkinter as tk
 
 
 class ToolTip:
+    """マウスオーバーで補足説明を表示する。"""
+
     def __init__(self, widget: tk.Widget, text: str, delay_ms: int = 450) -> None:
         self.widget = widget
         self.text = text

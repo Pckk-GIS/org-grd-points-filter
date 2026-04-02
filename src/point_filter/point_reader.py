@@ -1,14 +1,18 @@
+"""入力テキストの列読み取りとファイル列挙を行う。"""
+
 from __future__ import annotations
 
 import csv
+from math import inf
 from pathlib import Path
 from typing import Iterable
 
-from .models import InputSystem, PointRecord
+from .models import BoundingBox, InputSystem, PointRecord
 from .validation import DataFormatError
 
 
 def detect_system_from_filename(path: Path) -> InputSystem | None:
+    """ファイル名末尾から org / grd 系統を判定する。"""
     stem = path.stem.lower()
     if stem.endswith("_org"):
         return "org"
@@ -18,6 +22,7 @@ def detect_system_from_filename(path: Path) -> InputSystem | None:
 
 
 def iter_input_files(input_dir: Path) -> dict[InputSystem, list[Path]]:
+    """入力フォルダ内の対象テキストを系統ごとにまとめる。"""
     grouped: dict[InputSystem, list[Path]] = {"org": [], "grd": []}
     if not input_dir.exists():
         raise DataFormatError(f"Input directory not found: {input_dir}")
@@ -45,6 +50,79 @@ def _parse_float(
         ) from exc
 
 
+def measure_input_file_bounds(
+    path: Path,
+    *,
+    x_col: int,
+    y_col: int,
+    z_col: int,
+) -> BoundingBox | None:
+    """入力ファイル全体の矩形範囲を調べる。"""
+    x_index = x_col - 1
+    y_index = y_col - 1
+    z_index = z_col - 1
+
+    min_x = inf
+    max_x = -inf
+    min_y = inf
+    max_y = -inf
+    found = False
+
+    with path.open("r", encoding="utf-8-sig", newline="") as handle:
+        for line_number, raw_line in enumerate(handle, start=1):
+            stripped = raw_line.rstrip("\r\n")
+            if not stripped.strip():
+                continue
+
+            fields = next(csv.reader([stripped]))
+            normalized_fields = tuple(field.strip() for field in fields)
+
+            if max(x_index, y_index, z_index) >= len(normalized_fields):
+                raise DataFormatError(
+                    f"{path} line {line_number} has only {len(normalized_fields)} columns, "
+                    f"but columns {x_col}, {y_col}, {z_col} were requested"
+                )
+
+            x = _parse_float(
+                normalized_fields[x_index],
+                path=path,
+                line_number=line_number,
+                field_name="x",
+            )
+            y = _parse_float(
+                normalized_fields[y_index],
+                path=path,
+                line_number=line_number,
+                field_name="y",
+            )
+            _parse_float(
+                normalized_fields[z_index],
+                path=path,
+                line_number=line_number,
+                field_name="z",
+            )
+
+            if not found:
+                min_x = max_x = x
+                min_y = max_y = y
+                found = True
+                continue
+
+            if x < min_x:
+                min_x = x
+            if x > max_x:
+                max_x = x
+            if y < min_y:
+                min_y = y
+            if y > max_y:
+                max_y = y
+
+    if not found:
+        return None
+
+    return BoundingBox(min_x=min_x, max_x=max_x, min_y=min_y, max_y=max_y)
+
+
 def iter_point_records(
     path: Path,
     *,
@@ -53,6 +131,7 @@ def iter_point_records(
     z_col: int,
     system: InputSystem,
 ) -> Iterable[PointRecord]:
+    """指定列から点レコードを順次読み出す。"""
     x_index = x_col - 1
     y_index = y_col - 1
     z_index = z_col - 1

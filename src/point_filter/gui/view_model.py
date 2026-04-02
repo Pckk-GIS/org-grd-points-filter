@@ -1,3 +1,5 @@
+"""GUI の入力状態をアプリ設定へ変換する。"""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -16,6 +18,7 @@ DEFAULT_Z_COL = "4"
 
 
 def default_state() -> GuiState:
+    """GUI 起動時に使う既定値を返す。"""
     return GuiState(
         region_csv=DEFAULT_REGION_CSV,
         input_dir=DEFAULT_INPUT_DIR,
@@ -27,6 +30,7 @@ def default_state() -> GuiState:
 
 
 def _parse_positive_int(value: str, label: str) -> int:
+    """1 以上の整数として列番号を解釈する。"""
     try:
         parsed = int(value)
     except ValueError as exc:
@@ -40,6 +44,7 @@ def _parse_positive_int(value: str, label: str) -> int:
 
 
 def build_app_config(state: GuiState) -> AppConfig:
+    """GUI の状態から共通設定オブジェクトを作る。"""
     return AppConfig(
         region_csv=Path(state.region_csv),
         input_dir=Path(state.input_dir),

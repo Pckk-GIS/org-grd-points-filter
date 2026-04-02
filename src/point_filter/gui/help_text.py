@@ -1,3 +1,5 @@
+"""GUI のヘルプ画面に表示する詳細な案内文。"""
+
 from __future__ import annotations
 
 
