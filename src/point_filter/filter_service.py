@@ -293,6 +293,8 @@ def process(
                 {
                     "system": result.system,
                     "path": result.path,
+                    "index": result.index,
+                    "total": result.total,
                     "records": result.records,
                     "matches": result.matches,
                 },

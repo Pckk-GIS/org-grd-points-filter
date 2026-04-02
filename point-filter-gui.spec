@@ -1,9 +1,20 @@
 # -*- mode: python ; coding: utf-8 -*-
 
+from pathlib import Path
+import tomllib
+
+
+ROOT = Path(SPECPATH).resolve()
+PROJECT_ROOT = ROOT
+
+with (PROJECT_ROOT / "pyproject.toml").open("rb") as handle:
+    version = tomllib.load(handle)["project"]["version"]
+
+app_name = f"point-filter-gui_v{version}"
 
 a = Analysis(
-    ['gui_main.py'],
-    pathex=['src'],
+    ["gui_main.py"],
+    pathex=["src"],
     binaries=[],
     datas=[],
     hiddenimports=[],
@@ -21,7 +32,7 @@ exe = EXE(
     a.scripts,
     [],
     exclude_binaries=True,
-    name='point-filter-gui',
+    name=app_name,
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
@@ -40,5 +51,5 @@ coll = COLLECT(
     strip=False,
     upx=True,
     upx_exclude=[],
-    name='point-filter-gui',
+    name=app_name,
 )
