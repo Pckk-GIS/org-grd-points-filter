@@ -10,7 +10,7 @@ PROJECT_ROOT = ROOT
 with (PROJECT_ROOT / "pyproject.toml").open("rb") as handle:
     version = tomllib.load(handle)["project"]["version"]
 
-app_name = f"point-filter-gui_v{version}"
+app_name = f"point-filter-gui-v{version}"
 
 a = Analysis(
     ["gui_main.py"],
