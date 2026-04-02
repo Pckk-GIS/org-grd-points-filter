@@ -73,6 +73,7 @@ src/
 - 実行入口: `point_filter.__main__`
 - GUI 実装: `point_filter.gui`
 - GUI 実行入口: `point_filter.gui.__main__`
+- PyInstaller 用 GUI 入口: `gui_main.py`
 
 ### 3.2 命名の意図
 
@@ -203,6 +204,7 @@ GUI は 1 画面完結とする。
 - GUI 用のエントリポイントは `point_filter.gui.__main__` とする。
 - GUI 実装は標準ライブラリ中心にし、配布時の依存を最小化する。
 - `point-filter-gui.spec` を配布用ビルド定義として保持する。
+- spec は root の `gui_main.py` をエントリポイントとして参照する。
 - 再ビルド時は `-y` を付けて既存 `dist` を更新する。
 
 ## 8. GUI 導入条件

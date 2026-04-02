@@ -2,7 +2,7 @@
 
 
 a = Analysis(
-    ['src\\point_filter\\gui\\__main__.py'],
+    ['gui_main.py'],
     pathex=['src'],
     binaries=[],
     datas=[],
