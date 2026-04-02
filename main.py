@@ -1,3 +1,4 @@
+from multiprocessing import freeze_support
 from pathlib import Path
 import sys
 
@@ -11,4 +12,5 @@ from point_filter.cli import main  # noqa: E402
 
 
 if __name__ == "__main__":
+    freeze_support()
     raise SystemExit(main())

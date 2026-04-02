@@ -3,11 +3,10 @@
 from __future__ import annotations
 
 import csv
-from math import inf
 from pathlib import Path
 from typing import Iterable
 
-from .models import BoundingBox, InputSystem, PointRecord
+from .models import InputSystem, PointRecord
 from .validation import DataFormatError
 
 
@@ -48,79 +47,6 @@ def _parse_float(
         raise DataFormatError(
             f"Invalid {field_name} value in {path} line {line_number}: {value!r}"
         ) from exc
-
-
-def measure_input_file_bounds(
-    path: Path,
-    *,
-    x_col: int,
-    y_col: int,
-    z_col: int,
-) -> BoundingBox | None:
-    """入力ファイル全体の矩形範囲を調べる。"""
-    x_index = x_col - 1
-    y_index = y_col - 1
-    z_index = z_col - 1
-
-    min_x = inf
-    max_x = -inf
-    min_y = inf
-    max_y = -inf
-    found = False
-
-    with path.open("r", encoding="utf-8-sig", newline="") as handle:
-        for line_number, raw_line in enumerate(handle, start=1):
-            stripped = raw_line.rstrip("\r\n")
-            if not stripped.strip():
-                continue
-
-            fields = next(csv.reader([stripped]))
-            normalized_fields = tuple(field.strip() for field in fields)
-
-            if max(x_index, y_index, z_index) >= len(normalized_fields):
-                raise DataFormatError(
-                    f"{path} line {line_number} has only {len(normalized_fields)} columns, "
-                    f"but columns {x_col}, {y_col}, {z_col} were requested"
-                )
-
-            x = _parse_float(
-                normalized_fields[x_index],
-                path=path,
-                line_number=line_number,
-                field_name="x",
-            )
-            y = _parse_float(
-                normalized_fields[y_index],
-                path=path,
-                line_number=line_number,
-                field_name="y",
-            )
-            _parse_float(
-                normalized_fields[z_index],
-                path=path,
-                line_number=line_number,
-                field_name="z",
-            )
-
-            if not found:
-                min_x = max_x = x
-                min_y = max_y = y
-                found = True
-                continue
-
-            if x < min_x:
-                min_x = x
-            if x > max_x:
-                max_x = x
-            if y < min_y:
-                min_y = y
-            if y > max_y:
-                max_y = y
-
-    if not found:
-        return None
-
-    return BoundingBox(min_x=min_x, max_x=max_x, min_y=min_y, max_y=max_y)
 
 
 def iter_point_records(

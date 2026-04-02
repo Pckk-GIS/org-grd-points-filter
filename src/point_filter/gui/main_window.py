@@ -262,22 +262,6 @@ class MainWindow:
             )
             return
 
-        if event == "file_skipped":
-            system = cast(str, payload["system"])
-            path = cast(Path, payload["path"])
-            reason = cast(str, payload["reason"])
-            self.message_queue.put(
-                (
-                    "log",
-                    labels.STATUS_FILE_SKIPPED.format(
-                        system=system,
-                        path=path.name,
-                        reason=reason,
-                    ),
-                )
-            )
-            return
-
         if event == "file_done":
             system = cast(str, payload["system"])
             path = cast(Path, payload["path"])

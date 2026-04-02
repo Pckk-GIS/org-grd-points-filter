@@ -104,7 +104,7 @@ def test_process_emits_progress_every_100000_lines(tmp_path: Path) -> None:
     assert report.output_counts["org"][1] == 100_000
 
 
-def test_process_skips_file_when_bounds_do_not_overlap_regions(tmp_path: Path) -> None:
+def test_process_writes_empty_output_when_no_points_match(tmp_path: Path) -> None:
     region_csv = tmp_path / "regions.csv"
     region_csv.write_text(
         "region_id,x,y\n"
@@ -138,8 +138,7 @@ def test_process_skips_file_when_bounds_do_not_overlap_regions(tmp_path: Path) -
         config, progress_callback=lambda event, payload: events.append((event, payload))
     )
 
-    skipped_events = [payload for event, payload in events if event == "file_skipped"]
-    assert len(skipped_events) == 1
-    assert skipped_events[0]["reason"] == "領域矩形と交差しません"
+    assert sum(1 for event, _payload in events if event == "file_start") == 1
+    assert sum(1 for event, _payload in events if event == "file_done") == 1
     assert report.output_counts["org"][1] == 0
     assert (config.output_dir / "org_region1.txt").read_text(encoding="utf-8") == ""

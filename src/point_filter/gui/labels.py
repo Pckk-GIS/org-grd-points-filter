@@ -71,7 +71,6 @@ STATUS_INPUT_SCAN = (
 )
 STATUS_FILE_START = "[{system}] 読み込み開始: {path} ({index}/{total})"
 STATUS_FILE_PROGRESS = "[{system}] 読み込み中: {path} ({records} 行処理済み)"
-STATUS_FILE_SKIPPED = "[{system}] スキップ: {path} ({reason})"
 STATUS_FILE_DONE = (
     "[{system}] 読み込み完了: {path} ({index}/{total}, {records} 行, {matches} 件抽出)"
 )
