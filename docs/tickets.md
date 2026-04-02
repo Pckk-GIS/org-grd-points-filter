@@ -27,6 +27,7 @@
 | T14 | GUI 雛形作成 | GUI 用の枠組みを作る | `gui/` 配下の雛形 | T13 | GUI の画面骨格を起動できる |
 | T15 | GUI 連携 | GUI から CLI と同じコア処理を呼び出す | `gui/main_window.py`、`gui/state.py`、`gui/view_model.py` | T14 | GUI から同一処理を起動できる |
 | T16 | GUI テスト整備 | GUI の最低限の動作確認を追加する | GUI テスト | T15 | GUI 側の主要導線が確認できる |
+| T17 | PyInstaller 配布設定 | exe 化できるようにビルド設定を整える | `pyinstaller` 依存、`point-filter-gui.spec`、ビルド手順 | T15 | GUI を PyInstaller でビルドできる |
 
 ## 推奨実装順
 
@@ -46,6 +47,7 @@
 14. T14
 15. T15
 16. T16
+17. T17
 
 ## 分割の考え方
 

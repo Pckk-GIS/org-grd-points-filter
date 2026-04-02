@@ -8,6 +8,18 @@
 uv run python main.py --region-csv data/regions.csv --input-dir input --output-dir output --x-col 2 --y-col 3 --z-col 4
 ```
 
+## GUI
+
+```bash
+uv run point-filter-gui
+```
+
+## exe 化
+
+```bash
+uv run pyinstaller -y point-filter-gui.spec
+```
+
 ## 開発コマンド
 
 ```bash
