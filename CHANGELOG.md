@@ -7,6 +7,12 @@
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-04-03
+
+### Fixed
+- PyInstaller 配布物で `pyogrio` のネイティブ拡張モジュールが欠落し、ベクタ領域ファイル読込時に起動直後に失敗する問題を修正
+- `pyogrio.libs` 配下の GDAL DLL と `gdal_data` / `proj_data` を配布物へ同梱するように変更し、SHP / GPKG を使う GUI 成果物が起動できるように修正
+
 ## [0.4.0] - 2026-04-03
 
 ### Added

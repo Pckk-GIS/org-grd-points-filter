@@ -3,6 +3,8 @@
 from pathlib import Path
 import tomllib
 
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+
 
 ROOT = Path(SPECPATH).resolve()
 PROJECT_ROOT = ROOT
@@ -16,12 +18,19 @@ binaries = []
 if rust_cli.exists():
     binaries.append((str(rust_cli), "."))
 
+pyogrio_libs_dir = PROJECT_ROOT / ".venv" / "Lib" / "site-packages" / "pyogrio.libs"
+if pyogrio_libs_dir.exists():
+    binaries.extend((str(path), ".") for path in pyogrio_libs_dir.glob("*.dll"))
+
+datas = collect_data_files("pyogrio", includes=["gdal_data/*", "proj_data/*"])
+hiddenimports = collect_submodules("pyogrio")
+
 a = Analysis(
     ["gui_main.py"],
     pathex=["src"],
     binaries=binaries,
-    datas=[],
-    hiddenimports=[],
+    datas=datas,
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
