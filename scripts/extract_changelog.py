@@ -6,15 +6,26 @@ from pathlib import Path
 
 
 def extract_section(changelog_path: Path, version: str) -> str:
-    text = changelog_path.read_text(encoding="utf-8")
-    pattern = re.compile(
-        rf"^## \[{re.escape(version)}\] - .*$\n(?P<body>.*?)(?=^## \[|\Z)",
-        re.MULTILINE | re.DOTALL,
+    text = changelog_path.read_text(encoding="utf-8").replace("\r\n", "\n")
+    pattern = re.compile(r"^## \[(?P<version>[^\]]+)\] - .*$", re.MULTILINE)
+    matches = list(pattern.finditer(text))
+    target_index = next(
+        (
+            index
+            for index, match in enumerate(matches)
+            if match.group("version") == version
+        ),
+        None,
     )
-    match = pattern.search(text)
-    if match is None:
+    if target_index is None:
         raise SystemExit(f"CHANGELOG.md にバージョン {version} の節が見つかりません。")
-    return match.group(0).strip() + "\n"
+    start = matches[target_index].start()
+    end = (
+        matches[target_index + 1].start()
+        if target_index + 1 < len(matches)
+        else len(text)
+    )
+    return text[start:end].strip() + "\n"
 
 
 def main() -> int:
