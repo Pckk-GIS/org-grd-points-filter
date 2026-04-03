@@ -1,6 +1,6 @@
 [project]
 name = "point-filter"
-version = "0.1.0"
+version = "0.3.0"
 description = "点群を指定領域で抽出する"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -9,6 +9,7 @@ dependencies = []
 [project.scripts]
 point-filter = "point_filter.cli:main"
 point-filter-gui = "point_filter.gui:main"
+point-filter-bench = "point_filter.benchmark:main"
 
 [build-system]
 requires = ["setuptools>=69"]

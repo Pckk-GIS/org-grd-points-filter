@@ -34,6 +34,30 @@ def test_load_regions(tmp_path: Path):
     ]
 
 
+def test_load_regions_accepts_more_than_three_regions(tmp_path: Path):
+    csv_path = tmp_path / "regions.csv"
+    csv_path.write_text(
+        "region_id,x,y\n"
+        "4,0,0\n"
+        "4,10,0\n"
+        "4,10,10\n"
+        "5,20,20\n"
+        "5,30,20\n"
+        "5,30,30\n"
+        "6,40,40\n"
+        "6,50,40\n"
+        "6,50,50\n"
+        "7,60,60\n"
+        "7,70,60\n"
+        "7,70,70\n",
+        encoding="utf-8",
+    )
+
+    regions = load_regions(csv_path)
+
+    assert [region.region_id for region in regions] == ["4", "5", "6", "7"]
+
+
 def test_load_regions_rejects_interior_points(tmp_path: Path):
     csv_path = tmp_path / "regions.csv"
     csv_path.write_text(

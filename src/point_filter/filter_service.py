@@ -14,12 +14,18 @@ from typing import Protocol, TypedDict, cast
 
 from .config import AppConfig
 from .geometry import (
+    bounding_boxes_intersect,
     point_in_bounding_box,
     point_in_convex_polygon,
 )
 from .models import Point2D, InputSystem, Region
 from .output_writer import StreamingOutputWriter
-from .point_reader import iter_input_files, iter_point_records
+from .point_reader import (
+    InputFilePair,
+    iter_input_file_pairs,
+    iter_point_records,
+    measure_input_file_bounds,
+)
 from .region_loader import load_regions
 from .validation import require_positive_column_index
 
@@ -49,7 +55,7 @@ class ProcessingReport:
 
     region_count: int
     input_files: dict[InputSystem, int]
-    output_counts: dict[InputSystem, dict[int, int]]
+    output_counts: dict[InputSystem, dict[str, int]]
 
 
 @dataclass(frozen=True, slots=True)
@@ -72,7 +78,7 @@ class FileTaskResult:
     path: Path
     temp_dir: Path
     records: int
-    matches: dict[int, int]
+    matches: dict[str, int]
 
 
 def _emit(
@@ -107,6 +113,95 @@ def _build_file_tasks(
     return tasks
 
 
+def _build_file_tasks_from_pairs(
+    input_file_pairs: list[InputFilePair],
+) -> list[FileTask]:
+    grouped_input_files: dict[InputSystem, list[Path]] = {"org": [], "grd": []}
+    for pair in input_file_pairs:
+        if pair.org is not None:
+            grouped_input_files["org"].append(pair.org)
+        if pair.grd is not None:
+            grouped_input_files["grd"].append(pair.grd)
+    return _build_file_tasks(grouped_input_files)
+
+
+def _representative_file_for_pair(pair: InputFilePair) -> tuple[InputSystem, Path]:
+    if pair.grd is not None:
+        return "grd", pair.grd
+    if pair.org is not None:
+        return "org", pair.org
+    raise ValueError(f"input file pair {pair.file_id!r} has no files")
+
+
+def _select_input_file_pairs(
+    input_file_pairs: list[InputFilePair],
+    regions: list[Region],
+    *,
+    config: AppConfig,
+    progress_callback: ProgressCallback | None,
+) -> list[InputFilePair]:
+    selected_pairs: list[InputFilePair] = []
+
+    for pair in input_file_pairs:
+        representative_system, representative_path = _representative_file_for_pair(pair)
+        x_col, y_col, _z_col = config.columns_for(representative_system)
+        _emit(
+            progress_callback,
+            "file_group_scan_start",
+            {
+                "file_id": pair.file_id,
+                "system": representative_system,
+                "path": representative_path,
+            },
+        )
+        bounds = measure_input_file_bounds(
+            representative_path,
+            x_col=x_col,
+            y_col=y_col,
+            system=representative_system,
+            progress_callback=lambda records, file_id=pair.file_id, system=representative_system, path=representative_path: (
+                _emit(
+                    progress_callback,
+                    "file_group_scan_progress",
+                    {
+                        "file_id": file_id,
+                        "system": system,
+                        "path": path,
+                        "records": records,
+                    },
+                )
+            ),
+        )
+        _emit(
+            progress_callback,
+            "file_group_scan_done",
+            {
+                "file_id": pair.file_id,
+                "system": representative_system,
+                "path": representative_path,
+                "bounds": bounds,
+            },
+        )
+        if any(
+            bounding_boxes_intersect(bounds, region.bounding_box) for region in regions
+        ):
+            selected_pairs.append(pair)
+            continue
+
+        _emit(
+            progress_callback,
+            "file_group_skipped",
+            {
+                "file_id": pair.file_id,
+                "system": representative_system,
+                "path": representative_path,
+                "reason": "representative bounds do not intersect any region",
+            },
+        )
+
+    return selected_pairs
+
+
 def _process_file_task(
     task: FileTask,
     regions: list[Region],
@@ -118,9 +213,9 @@ def _process_file_task(
     progress_queue: ProgressQueueLike | None,
 ) -> FileTaskResult:
     temp_dir = temp_root / f"{task.system}_{task.index:04d}"
-    writer = StreamingOutputWriter(temp_dir, len(regions))
+    writer = StreamingOutputWriter(temp_dir, [region.region_id for region in regions])
     record_count = 0
-    match_counts = {region.ordinal: 0 for region in regions}
+    match_counts = {region.region_id: 0 for region in regions}
 
     try:
         for record in iter_point_records(
@@ -136,8 +231,8 @@ def _process_file_task(
                 if not point_in_bounding_box(point, region.bounding_box):
                     continue
                 if point_in_convex_polygon(point, region.vertices):
-                    writer.write(task.system, region.ordinal, record.raw_line)
-                    match_counts[region.ordinal] += 1
+                    writer.write(task.system, region.region_id, record.raw_line)
+                    match_counts[region.region_id] += 1
 
             if progress_queue is not None and record_count % 100000 == 0:
                 progress_queue.put(
@@ -173,33 +268,41 @@ def _merge_partial_result(
     writer: StreamingOutputWriter, result: FileTaskResult, regions: list[Region]
 ) -> None:
     for region in regions:
-        part_path = result.temp_dir / f"{result.system}_region{region.ordinal}.txt"
+        part_path = result.temp_dir / f"{result.system}_region{region.region_id}.txt"
         if not part_path.exists():
             continue
         with part_path.open("r", encoding="utf-8", newline="") as handle:
             for line in handle:
-                writer.write(result.system, region.ordinal, line.rstrip("\r\n"))
+                writer.write(result.system, region.region_id, line.rstrip("\r\n"))
 
 
 def process(
     config: AppConfig, progress_callback: ProgressCallback | None = None
 ) -> ProcessingReport:
-    """設定に従って点群を 3 領域へ振り分ける。"""
-    require_positive_column_index(config.x_col, "X")
-    require_positive_column_index(config.y_col, "Y")
-    require_positive_column_index(config.z_col, "Z")
+    """設定に従って点群を定義済み領域へ振り分ける。"""
+    require_positive_column_index(config.org_x_col, "org X")
+    require_positive_column_index(config.org_y_col, "org Y")
+    require_positive_column_index(config.org_z_col, "org Z")
+    require_positive_column_index(config.grd_x_col, "grd X")
+    require_positive_column_index(config.grd_y_col, "grd Y")
+    require_positive_column_index(config.grd_z_col, "grd Z")
 
     regions = load_regions(config.region_csv)
+    region_ids = [region.region_id for region in regions]
     _emit(
         progress_callback,
         "regions_loaded",
         {
             "region_count": len(regions),
-            "region_ids": [region.region_id for region in regions],
+            "region_ids": region_ids,
         },
     )
 
-    grouped_input_files = iter_input_files(config.input_dir)
+    input_file_pairs = iter_input_file_pairs(config.input_dir)
+    grouped_input_files: dict[InputSystem, list[Path]] = {
+        "org": [pair.org for pair in input_file_pairs if pair.org is not None],
+        "grd": [pair.grd for pair in input_file_pairs if pair.grd is not None],
+    }
     _emit(
         progress_callback,
         "input_scan",
@@ -211,14 +314,20 @@ def process(
         },
     )
 
-    tasks = _build_file_tasks(grouped_input_files)
+    selected_pairs = _select_input_file_pairs(
+        input_file_pairs,
+        regions,
+        config=config,
+        progress_callback=progress_callback,
+    )
+    tasks = _build_file_tasks_from_pairs(selected_pairs)
     input_file_counts: dict[InputSystem, int] = {
         "org": len(grouped_input_files["org"]),
         "grd": len(grouped_input_files["grd"]),
     }
 
     if not tasks:
-        writer = StreamingOutputWriter(config.output_dir, len(regions))
+        writer = StreamingOutputWriter(config.output_dir, region_ids)
         writer.commit()
         return ProcessingReport(
             region_count=len(regions),
@@ -227,7 +336,7 @@ def process(
         )
 
     temp_root = Path(tempfile.mkdtemp(prefix="point_filter_parallel_"))
-    final_writer = StreamingOutputWriter(config.output_dir, len(regions))
+    final_writer = StreamingOutputWriter(config.output_dir, region_ids)
     results_by_key: dict[tuple[InputSystem, int], FileTaskResult] = {}
 
     try:
@@ -244,9 +353,9 @@ def process(
                         _process_file_task,
                         task,
                         regions,
-                        x_col=config.x_col,
-                        y_col=config.y_col,
-                        z_col=config.z_col,
+                        x_col=config.columns_for(task.system)[0],
+                        y_col=config.columns_for(task.system)[1],
+                        z_col=config.columns_for(task.system)[2],
                         temp_root=temp_root,
                         progress_queue=progress_queue,
                     ): task

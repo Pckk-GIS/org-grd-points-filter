@@ -13,6 +13,7 @@ from typing import cast
 
 from ..config import AppConfig
 from ..filter_service import process
+from ..point_reader import find_preview_file, read_preview_lines
 from ..validation import PointFilterError
 from . import labels
 from .help_window import HelpWindow
@@ -38,13 +39,19 @@ class MainWindow:
         self.region_csv_var = tk.StringVar(value=default.region_csv)
         self.input_dir_var = tk.StringVar(value=default.input_dir)
         self.output_dir_var = tk.StringVar(value=default.output_dir)
-        self.x_col_var = tk.StringVar(value=default.x_col)
-        self.y_col_var = tk.StringVar(value=default.y_col)
-        self.z_col_var = tk.StringVar(value=default.z_col)
+        self.org_x_col_var = tk.StringVar(value=default.org_x_col)
+        self.org_y_col_var = tk.StringVar(value=default.org_y_col)
+        self.org_z_col_var = tk.StringVar(value=default.org_z_col)
+        self.grd_x_col_var = tk.StringVar(value=default.grd_x_col)
+        self.grd_y_col_var = tk.StringVar(value=default.grd_y_col)
+        self.grd_z_col_var = tk.StringVar(value=default.grd_z_col)
+        self.org_preview: scrolledtext.ScrolledText | None = None
+        self.grd_preview: scrolledtext.ScrolledText | None = None
 
         self._build_layout()
         self._build_menu()
         self._append_log("GUI を起動しました。")
+        self._refresh_preview(log_result=False)
         self.root.after(100, self._poll_messages)
 
     def _build_menu(self) -> None:
@@ -74,6 +81,15 @@ class MainWindow:
         container = ttk.Frame(self.root, padding=16)
         container.pack(fill=tk.BOTH, expand=True)
 
+        notice_frame = ttk.LabelFrame(container, text=labels.OPTIMIZATION_NOTICE_TITLE)
+        notice_frame.pack(fill=tk.X, pady=(0, 12))
+        ttk.Label(
+            notice_frame,
+            text=labels.OPTIMIZATION_NOTICE,
+            wraplength=780,
+            justify=tk.LEFT,
+        ).pack(fill=tk.X, padx=8, pady=8)
+
         form = ttk.Frame(container)
         form.pack(fill=tk.X)
 
@@ -86,7 +102,28 @@ class MainWindow:
         self._add_path_row(
             form, 2, labels.OUTPUT_DIR, self.output_dir_var, self._browse_output_dir
         )
-        self._add_column_row(form, 3)
+        self._add_column_row(
+            form,
+            3,
+            labels.ORG_COLS,
+            labels.ORG_X_COL,
+            labels.ORG_Y_COL,
+            labels.ORG_Z_COL,
+            self.org_x_col_var,
+            self.org_y_col_var,
+            self.org_z_col_var,
+        )
+        self._add_column_row(
+            form,
+            4,
+            labels.GRD_COLS,
+            labels.GRD_X_COL,
+            labels.GRD_Y_COL,
+            labels.GRD_Z_COL,
+            self.grd_x_col_var,
+            self.grd_y_col_var,
+            self.grd_z_col_var,
+        )
 
         actions = ttk.Frame(container)
         actions.pack(fill=tk.X, pady=(12, 8))
@@ -103,7 +140,29 @@ class MainWindow:
         clear_button.pack(side=tk.LEFT, padx=(8, 0))
         self._tooltips.append(ToolTip(clear_button, labels.CLEAR_LOG_TOOLTIP))
 
+        refresh_button = ttk.Button(
+            actions,
+            text=labels.REFRESH_PREVIEW_BUTTON,
+            command=self._on_refresh_preview,
+        )
+        refresh_button.pack(side=tk.LEFT, padx=(8, 0))
+        self._tooltips.append(ToolTip(refresh_button, labels.REFRESH_PREVIEW_TOOLTIP))
+
         ttk.Separator(container).pack(fill=tk.X, pady=(8, 8))
+
+        preview_frame = ttk.LabelFrame(container, text=labels.PREVIEW_FRAME)
+        preview_frame.pack(fill=tk.BOTH, expand=False, pady=(0, 8))
+        preview_columns = ttk.Frame(preview_frame)
+        preview_columns.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+        preview_columns.columnconfigure(0, weight=1)
+        preview_columns.columnconfigure(1, weight=1)
+
+        self.org_preview = self._build_preview_panel(
+            preview_columns, 0, labels.ORG_PREVIEW
+        )
+        self.grd_preview = self._build_preview_panel(
+            preview_columns, 1, labels.GRD_PREVIEW
+        )
 
         log_frame = ttk.LabelFrame(container, text=labels.LOG_FRAME)
         log_frame.pack(fill=tk.BOTH, expand=True)
@@ -133,16 +192,27 @@ class MainWindow:
         self._tooltips.append(ToolTip(browse_button, labels.SELECT_BUTTON_TOOLTIP))
         parent.columnconfigure(1, weight=1)
 
-    def _add_column_row(self, parent: ttk.Frame, row: int) -> None:
-        label_widget = ttk.Label(parent, text=labels.COLS.label)
+    def _add_column_row(
+        self,
+        parent: ttk.Frame,
+        row: int,
+        group_field: labels.LabeledText,
+        x_field: labels.LabeledText,
+        y_field: labels.LabeledText,
+        z_field: labels.LabeledText,
+        x_var: tk.StringVar,
+        y_var: tk.StringVar,
+        z_var: tk.StringVar,
+    ) -> None:
+        label_widget = ttk.Label(parent, text=group_field.label)
         label_widget.grid(row=row, column=0, sticky=tk.W, pady=4)
         columns = ttk.Frame(parent)
         columns.grid(row=row, column=1, columnspan=2, sticky=tk.W, pady=4)
-        self._tooltips.append(ToolTip(label_widget, labels.COLS.tooltip))
+        self._tooltips.append(ToolTip(label_widget, group_field.tooltip))
 
-        self._add_small_entry(columns, labels.X_COL, self.x_col_var, 0)
-        self._add_small_entry(columns, labels.Y_COL, self.y_col_var, 1)
-        self._add_small_entry(columns, labels.Z_COL, self.z_col_var, 2)
+        self._add_small_entry(columns, x_field, x_var, 0)
+        self._add_small_entry(columns, y_field, y_var, 1)
+        self._add_small_entry(columns, z_field, z_var, 2)
 
     def _add_small_entry(
         self,
@@ -160,6 +230,18 @@ class MainWindow:
         self._tooltips.append(ToolTip(label_widget, field.tooltip))
         self._tooltips.append(ToolTip(entry, field.tooltip))
 
+    def _build_preview_panel(
+        self, parent: ttk.Frame, column: int, title: str
+    ) -> scrolledtext.ScrolledText:
+        frame = ttk.LabelFrame(parent, text=title)
+        frame.grid(
+            row=0, column=column, sticky=tk.NSEW, padx=(0 if column == 0 else 8, 0)
+        )
+        text = scrolledtext.ScrolledText(frame, height=7, wrap=tk.NONE)
+        text.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+        text.configure(state="disabled")
+        return text
+
     def _browse_region_csv(self) -> None:
         path = filedialog.askopenfilename(
             parent=self.root,
@@ -175,6 +257,7 @@ class MainWindow:
         )
         if path:
             self.input_dir_var.set(path)
+            self._refresh_preview(log_result=True)
 
     def _browse_output_dir(self) -> None:
         path = filedialog.askdirectory(
@@ -182,6 +265,45 @@ class MainWindow:
         )
         if path:
             self.output_dir_var.set(path)
+
+    def _set_preview_text(
+        self, widget: scrolledtext.ScrolledText | None, lines: list[str]
+    ) -> None:
+        if widget is None:
+            return
+        widget.configure(state="normal")
+        widget.delete("1.0", tk.END)
+        widget.insert(tk.END, "\n".join(lines) if lines else labels.PREVIEW_EMPTY)
+        widget.configure(state="disabled")
+
+    def _refresh_preview(self, *, log_result: bool) -> None:
+        try:
+            input_dir = Path(self.input_dir_var.get().strip())
+            if not input_dir.exists():
+                self._set_preview_text(self.org_preview, [])
+                self._set_preview_text(self.grd_preview, [])
+                return
+
+            org_file = find_preview_file(input_dir, "org")
+            grd_file = find_preview_file(input_dir, "grd")
+            self._set_preview_text(
+                self.org_preview,
+                read_preview_lines(org_file) if org_file is not None else [],
+            )
+            self._set_preview_text(
+                self.grd_preview,
+                read_preview_lines(grd_file) if grd_file is not None else [],
+            )
+            if log_result:
+                self._append_log(labels.STATUS_PREVIEW_UPDATED)
+        except Exception as exc:  # pragma: no cover - UI fallback
+            self._set_preview_text(self.org_preview, [])
+            self._set_preview_text(self.grd_preview, [])
+            if log_result:
+                self._append_log(labels.STATUS_PREVIEW_ERROR.format(error=exc))
+
+    def _on_refresh_preview(self) -> None:
+        self._refresh_preview(log_result=True)
 
     def _clear_log(self) -> None:
         self.log.configure(state="normal")
@@ -195,9 +317,10 @@ class MainWindow:
         self.log.see(tk.END)
         self.log.configure(state="disabled")
 
-    def _format_match_summary(self, matches: dict[int, int]) -> str:
+    def _format_match_summary(self, matches: dict[str, int]) -> str:
         parts = [
-            f"region{ordinal}={count}" for ordinal, count in sorted(matches.items())
+            f"region{region_id}={count}"
+            for region_id, count in sorted(matches.items(), key=lambda item: item[0])
         ]
         return ", ".join(parts)
 
@@ -223,6 +346,72 @@ class MainWindow:
                         org_count=org_files,
                         grd_count=grd_files,
                         total_count=total_files,
+                    ),
+                )
+            )
+            return
+
+        if event == "file_group_skipped":
+            file_id = cast(str, payload["file_id"])
+            system = cast(str, payload["system"])
+            path = cast(Path, payload["path"])
+            self.message_queue.put(
+                (
+                    "log",
+                    labels.STATUS_FILE_GROUP_SKIPPED.format(
+                        system=system,
+                        file_id=file_id,
+                        path=path.name,
+                    ),
+                )
+            )
+            return
+
+        if event == "file_group_scan_start":
+            file_id = cast(str, payload["file_id"])
+            system = cast(str, payload["system"])
+            path = cast(Path, payload["path"])
+            self.message_queue.put(
+                (
+                    "log",
+                    labels.STATUS_FILE_GROUP_SCAN_START.format(
+                        system=system,
+                        file_id=file_id,
+                        path=path.name,
+                    ),
+                )
+            )
+            return
+
+        if event == "file_group_scan_progress":
+            file_id = cast(str, payload["file_id"])
+            system = cast(str, payload["system"])
+            path = cast(Path, payload["path"])
+            records = cast(int, payload["records"])
+            self.message_queue.put(
+                (
+                    "log",
+                    labels.STATUS_FILE_GROUP_SCAN_PROGRESS.format(
+                        system=system,
+                        file_id=file_id,
+                        path=path.name,
+                        records=records,
+                    ),
+                )
+            )
+            return
+
+        if event == "file_group_scan_done":
+            file_id = cast(str, payload["file_id"])
+            system = cast(str, payload["system"])
+            path = cast(Path, payload["path"])
+            self.message_queue.put(
+                (
+                    "log",
+                    labels.STATUS_FILE_GROUP_SCAN_DONE.format(
+                        system=system,
+                        file_id=file_id,
+                        path=path.name,
                     ),
                 )
             )
@@ -268,7 +457,7 @@ class MainWindow:
             index = cast(int, payload["index"])
             total = cast(int, payload["total"])
             records = cast(int, payload["records"])
-            matches = cast(dict[int, int], payload["matches"])
+            matches = cast(dict[str, int], payload["matches"])
             self.message_queue.put(
                 (
                     "log",
@@ -288,9 +477,12 @@ class MainWindow:
             region_csv=self.region_csv_var.get().strip(),
             input_dir=self.input_dir_var.get().strip(),
             output_dir=self.output_dir_var.get().strip(),
-            x_col=self.x_col_var.get().strip(),
-            y_col=self.y_col_var.get().strip(),
-            z_col=self.z_col_var.get().strip(),
+            org_x_col=self.org_x_col_var.get().strip(),
+            org_y_col=self.org_y_col_var.get().strip(),
+            org_z_col=self.org_z_col_var.get().strip(),
+            grd_x_col=self.grd_x_col_var.get().strip(),
+            grd_y_col=self.grd_y_col_var.get().strip(),
+            grd_z_col=self.grd_z_col_var.get().strip(),
         )
 
     def _set_running(self, running: bool) -> None:
@@ -312,7 +504,8 @@ class MainWindow:
             f"領域CSV={config.region_csv}, "
             f"入力フォルダ={config.input_dir}, "
             f"出力フォルダ={config.output_dir}, "
-            f"X={config.x_col}, Y={config.y_col}, Z={config.z_col}"
+            f"org(X={config.org_x_col}, Y={config.org_y_col}, Z={config.org_z_col}), "
+            f"grd(X={config.grd_x_col}, Y={config.grd_y_col}, Z={config.grd_z_col})"
         )
         self._set_running(True)
 
@@ -324,8 +517,8 @@ class MainWindow:
             report = process(config, progress_callback=self._handle_progress)
             self.message_queue.put(("log", labels.STATUS_OUTPUT_START))
             for system, region_map in report.output_counts.items():
-                for ordinal, count in region_map.items():
-                    output_path = config.output_dir / f"{system}_region{ordinal}.txt"
+                for region_id, count in region_map.items():
+                    output_path = config.output_dir / f"{system}_region{region_id}.txt"
                     self.message_queue.put(
                         (
                             "log",

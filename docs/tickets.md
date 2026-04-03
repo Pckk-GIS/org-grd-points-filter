@@ -19,11 +19,11 @@
 | T06 | 凸性検証 | 現時点の領域が凸多角形か判定する | `validation.py` または `geometry.py` | T04, T05 | 凸性不成立を検出して失敗できる |
 | T07 | 内外判定 | 点が領域内か境界上かを判定する | `geometry.py` | T02, T06 | 境界含みで正しく判定できる |
 | T08 | 入力点読み込み | 入力テキストから `X/Y/Z` 列を取り出す | `point_reader.py` | T02, T03 | 列番号指定で点を読める |
-| T09 | 抽出サービス実装 | 3 領域へ点を振り分ける中核処理を作る | `filter_service.py` | T04, T06, T07, T08 | 1 つの入力に対して領域別の抽出結果を返せる |
-| T10 | 出力書き込み | 6 ファイルを書き出す | `output_writer.py` | T02, T09 | `org_regionN.txt` / `grd_regionN.txt` を出力できる |
+| T09 | 抽出サービス実装 | 複数領域へ点を振り分ける中核処理を作る | `filter_service.py` | T04, T06, T07, T08 | 1 つの入力に対して領域別の抽出結果を返せる |
+| T10 | 出力書き込み | `region_id` ベースのファイルを書き出す | `output_writer.py` | T02, T09 | `org_region{region_id}.txt` / `grd_region{region_id}.txt` を出力できる |
 | T11 | CLI 実装 | コマンドラインから全体を実行できるようにする | `cli.py` | T03, T04, T08, T09, T10 | 引数から処理を起動できる |
 | T12 | CLI 単体テスト | 各モジュールの基本動作を確認する | `tests/unit` 一式 | T02〜T11 | CSV 読み込み、列指定、凸性、内外判定のテストが通る |
-| T13 | CLI 結合テスト | 実際の入力フォルダを使って end-to-end を確認する | `tests/integration` 一式 | T11, T12 | 6 ファイル出力、境界点、重なり、異常終了を確認できる |
+| T13 | CLI 結合テスト | 実際の入力フォルダを使って end-to-end を確認する | `tests/integration` 一式 | T11, T12 | `region_id` ごとの出力、境界点、重なり、異常終了を確認できる |
 | T14 | GUI 雛形作成 | GUI 用の枠組みを作る | `gui/` 配下の雛形 | T13 | GUI の画面骨格を起動できる |
 | T15 | GUI 連携 | GUI から CLI と同じコア処理を呼び出す | `gui/main_window.py`、`gui/state.py`、`gui/view_model.py` | T14 | GUI から同一処理を起動できる |
 | T16 | GUI ヘルプ整備 | メニューから使い方を開けるようにする | `gui/help_text.py`、`gui/help_window.py`、メニューバー | T15 | GUI 内で詳細ヘルプを開ける |

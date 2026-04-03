@@ -12,9 +12,12 @@ from .state import GuiState
 DEFAULT_REGION_CSV = "data/regions.csv"
 DEFAULT_INPUT_DIR = "input"
 DEFAULT_OUTPUT_DIR = "output"
-DEFAULT_X_COL = "2"
-DEFAULT_Y_COL = "3"
-DEFAULT_Z_COL = "4"
+DEFAULT_ORG_X_COL = "2"
+DEFAULT_ORG_Y_COL = "3"
+DEFAULT_ORG_Z_COL = "4"
+DEFAULT_GRD_X_COL = "2"
+DEFAULT_GRD_Y_COL = "3"
+DEFAULT_GRD_Z_COL = "4"
 
 
 def default_state() -> GuiState:
@@ -23,9 +26,12 @@ def default_state() -> GuiState:
         region_csv=DEFAULT_REGION_CSV,
         input_dir=DEFAULT_INPUT_DIR,
         output_dir=DEFAULT_OUTPUT_DIR,
-        x_col=DEFAULT_X_COL,
-        y_col=DEFAULT_Y_COL,
-        z_col=DEFAULT_Z_COL,
+        org_x_col=DEFAULT_ORG_X_COL,
+        org_y_col=DEFAULT_ORG_Y_COL,
+        org_z_col=DEFAULT_ORG_Z_COL,
+        grd_x_col=DEFAULT_GRD_X_COL,
+        grd_y_col=DEFAULT_GRD_Y_COL,
+        grd_z_col=DEFAULT_GRD_Z_COL,
     )
 
 
@@ -49,7 +55,10 @@ def build_app_config(state: GuiState) -> AppConfig:
         region_csv=Path(state.region_csv),
         input_dir=Path(state.input_dir),
         output_dir=Path(state.output_dir),
-        x_col=_parse_positive_int(state.x_col, "X"),
-        y_col=_parse_positive_int(state.y_col, "Y"),
-        z_col=_parse_positive_int(state.z_col, "Z"),
+        org_x_col=_parse_positive_int(state.org_x_col, "org X"),
+        org_y_col=_parse_positive_int(state.org_y_col, "org Y"),
+        org_z_col=_parse_positive_int(state.org_z_col, "org Z"),
+        grd_x_col=_parse_positive_int(state.grd_x_col, "grd X"),
+        grd_y_col=_parse_positive_int(state.grd_y_col, "grd Y"),
+        grd_z_col=_parse_positive_int(state.grd_z_col, "grd Z"),
     )

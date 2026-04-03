@@ -8,19 +8,20 @@ point-filter 使い方
 
 1. このツールでできること
 このツールは、入力フォルダにある点群テキストを読み込み、
-3 つの領域定義に基づいて点を振り分け、`org` と `grd` を別々に抽出するツールです。
-GUI から操作しても、CLI から操作しても、内部では同じ処理を使います。
+領域定義に基づいて点を振り分け、`org` と `grd` を別々に抽出するツールです。
+GUI から操作しても、CLI から操作しても、内部では同じ設定を使います。
 
 2. まず最初に必要なもの
 - 領域定義 CSV 1 ファイル
 - 入力フォルダ
 - 出力フォルダ
-- X / Y / Z の列番号
+- org 用の X / Y / Z 列番号
+- grd 用の X / Y / Z 列番号
 
 3. 領域定義 CSV の考え方
 領域定義 CSV は `region_id,x,y` 形式です。
 ヘッダ行は必要です。
-3 つの `region_id` を使って、3 領域を定義します。
+複数の `region_id` を使って、複数領域を定義します。
 各 `region_id` に属する行は、その領域を作るための頂点候補です。
 
 重要:
@@ -56,7 +57,7 @@ region_id,x,y
 - `*_grd.txt` -> grd 系
 
 入力テキストにはヘッダ行はありません。
-X / Y / Z は列番号で指定します。
+X / Y / Z は org と grd で別々に列番号指定できます。
 列番号は 1 始まりです。
 
 たとえば `2, 3, 4` を指定すると、次の意味になります。
@@ -77,28 +78,28 @@ ID002 124.0 457.2 12.1
 1) `領域CSV` を選びます。
 2) `入力フォルダ` を選びます。
 3) `出力フォルダ` を選びます。
-4) `X列` `Y列` `Z列` を入力します。
-5) `実行` を押します。
-6) 画面下部のログで進捗と結果を確認します。
+4) `org` と `grd` の列番号をそれぞれ入力します。
+5) 入力プレビューを確認します。
+6) `実行` を押します。
+7) 画面下部のログで進捗と結果を確認します。
 
 6. CLI の使い方
 同じ処理はコマンドラインからも実行できます。
 
 ```bash
 uv run point-filter --region-csv data/regions.csv --input-dir input --output-dir output --x-col 2 --y-col 3 --z-col 4
+uv run point-filter --region-csv data/regions.csv --input-dir input --output-dir output --org-x-col 2 --org-y-col 3 --org-z-col 4 --grd-x-col 1 --grd-y-col 2 --grd-z-col 3
 ```
 
 開発中に `main.py` から直接起動する場合は、同じ引数を使えます。
 
 7. 出力ファイル
-出力は 6 個です。
+出力は `region_id` ごとに作成されます。
 
-- `org_region1.txt`
-- `org_region2.txt`
-- `org_region3.txt`
-- `grd_region1.txt`
-- `grd_region2.txt`
-- `grd_region3.txt`
+- `org_region4.txt`
+- `org_region5.txt`
+- `grd_region4.txt`
+- `grd_region5.txt`
 
 ポイント:
 - `org` と `grd` は別々に出力されます。
@@ -108,8 +109,6 @@ uv run point-filter --region-csv data/regions.csv --input-dir input --output-dir
 8. よくあるエラー
 - `Region CSV header must be ('region_id', 'x', 'y')`  
   -> CSV の先頭行を `region_id,x,y` にしてください。
-- `Region CSV must define exactly 3 regions`  
-  -> 領域は 3 つだけ定義してください。
 - `Region contains interior or colinear points`  
   -> その `region_id` に、外周頂点以外の点が混ざっています。
 - `Region contains duplicate points`  
@@ -125,11 +124,13 @@ uv run point-filter --region-csv data/regions.csv --input-dir input --output-dir
 - `region_id` ごとに正しい頂点だけを入れてください。
 - CRS 変換はしません。
 - 入力データと領域定義は同一座標系である必要があります。
+- 高速化のため、`org` / `grd` は同じ範囲前提で file_id 単位のスキップ判定を行います。
+- 前提が崩れたデータでは、取りこぼしの可能性があります。
 
 10. 迷ったときの確認順
 1) 領域 CSV のヘッダが正しいか
-2) `region_id` が 3 種類あるか
+2) `region_id` が期待どおり定義されているか
 3) 領域 CSV に内側の点や重複点が混ざっていないか
 4) 入力ファイル名が `*_org.txt` / `*_grd.txt` になっているか
-5) X / Y / Z の列番号が 1 始まりで正しいか
+5) org / grd それぞれの列番号が 1 始まりで正しいか
 """

@@ -15,7 +15,7 @@ app_name = f"point-filter-gui-v{version}"
 a = Analysis(
     ["gui_main.py"],
     pathex=["src"],
-    binaries=[],
+    binaries=[("point-filter-rs/target/release/point-filter-cli.exe", "."),],
     datas=[],
     hiddenimports=[],
     hookspath=[],

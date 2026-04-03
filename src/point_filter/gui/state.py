@@ -10,6 +10,9 @@ class GuiState:
     region_csv: str
     input_dir: str
     output_dir: str
-    x_col: str
-    y_col: str
-    z_col: str
+    org_x_col: str
+    org_y_col: str
+    org_z_col: str
+    grd_x_col: str
+    grd_y_col: str
+    grd_z_col: str

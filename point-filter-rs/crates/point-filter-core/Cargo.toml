@@ -1,0 +1,15 @@
+[package]
+name = "point-filter-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+csv.workspace = true
+rayon.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+

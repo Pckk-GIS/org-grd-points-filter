@@ -1,0 +1,26 @@
+[workspace]
+members = [
+    "crates/point-filter-core",
+    "crates/point-filter-cli",
+    "crates/point-filter-gui",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94"
+publish = false
+
+[workspace.dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+csv = "1"
+eframe = "0.33"
+egui = "0.33"
+rayon = "1"
+rfd = "0.15"
+tempfile = "3"
+thiserror = "2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }

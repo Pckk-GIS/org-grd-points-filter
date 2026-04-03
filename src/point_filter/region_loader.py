@@ -23,7 +23,7 @@ def _parse_float(value: str, *, path: Path, line_number: int, field_name: str) -
 
 
 def load_regions(region_csv: Path) -> list[Region]:
-    """領域 CSV から 3 領域を読み込む。"""
+    """領域 CSV から複数領域を読み込む。"""
     if not region_csv.exists():
         raise DataFormatError(f"Region CSV not found: {region_csv}")
 
@@ -75,7 +75,7 @@ def load_regions(region_csv: Path) -> list[Region]:
         regions: list[Region] = []
         for ordinal, region_id in enumerate(region_order, start=1):
             vertices = convex_hull(region_points[region_id])
-            validate_region_vertices(vertices, str(ordinal))
+            validate_region_vertices(vertices, region_id)
             regions.append(
                 Region(
                     ordinal=ordinal,
@@ -84,10 +84,5 @@ def load_regions(region_csv: Path) -> list[Region]:
                     bounding_box=bounding_box_from_points(vertices),
                 )
             )
-
-    if len(regions) != 3:
-        raise DataFormatError(
-            f"Region CSV must define exactly 3 regions, got {len(regions)}"
-        )
 
     return regions

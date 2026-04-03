@@ -15,7 +15,7 @@ class OutputFileTarget:
     """1 つの出力ファイルの一時ファイルと本番ファイルを表す。"""
 
     system: InputSystem
-    ordinal: int
+    region_id: str
     final_path: Path
     temp_path: Path
 
@@ -23,45 +23,45 @@ class OutputFileTarget:
 class StreamingOutputWriter:
     """抽出結果を逐次書き込むためのライター。"""
 
-    def __init__(self, output_dir: Path, region_count: int) -> None:
+    def __init__(self, output_dir: Path, region_ids: list[str]) -> None:
         self.output_dir = output_dir
         self.output_dir.mkdir(parents=True, exist_ok=True)
-        self._targets: dict[tuple[InputSystem, int], OutputFileTarget] = {}
-        self._handles: dict[tuple[InputSystem, int], TextIO] = {}
-        self._counts: dict[InputSystem, dict[int, int]] = {
-            "org": {index: 0 for index in range(1, region_count + 1)},
-            "grd": {index: 0 for index in range(1, region_count + 1)},
+        self._targets: dict[tuple[InputSystem, str], OutputFileTarget] = {}
+        self._handles: dict[tuple[InputSystem, str], TextIO] = {}
+        self._counts: dict[InputSystem, dict[str, int]] = {
+            "org": {region_id: 0 for region_id in region_ids},
+            "grd": {region_id: 0 for region_id in region_ids},
         }
         self._committed = False
 
         for system in ("org", "grd"):
-            for ordinal in range(1, region_count + 1):
-                final_path = self.output_dir / f"{system}_region{ordinal}.txt"
-                temp_path = self.output_dir / f".{system}_region{ordinal}.txt.tmp"
+            for region_id in region_ids:
+                final_path = self.output_dir / f"{system}_region{region_id}.txt"
+                temp_path = self.output_dir / f".{system}_region{region_id}.txt.tmp"
                 target = OutputFileTarget(
                     system=system,
-                    ordinal=ordinal,
+                    region_id=region_id,
                     final_path=final_path,
                     temp_path=temp_path,
                 )
-                self._targets[(system, ordinal)] = target
-                self._handles[(system, ordinal)] = temp_path.open(
+                self._targets[(system, region_id)] = target
+                self._handles[(system, region_id)] = temp_path.open(
                     "w", encoding="utf-8", newline="\n"
                 )
 
     @property
-    def counts(self) -> dict[InputSystem, dict[int, int]]:
+    def counts(self) -> dict[InputSystem, dict[str, int]]:
         """領域ごとの書き込み件数を返す。"""
         return {
             system: dict(region_counts)
             for system, region_counts in self._counts.items()
         }
 
-    def write(self, system: InputSystem, ordinal: int, line: str) -> None:
+    def write(self, system: InputSystem, region_id: str, line: str) -> None:
         """指定した出力先へ 1 行を書き込む。"""
-        handle = self._handles[(system, ordinal)]
+        handle = self._handles[(system, region_id)]
         handle.write(f"{line}\n")
-        self._counts[system][ordinal] += 1
+        self._counts[system][region_id] += 1
 
     def commit(self) -> None:
         """一時ファイルを本番ファイルへ置き換える。"""
