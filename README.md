@@ -112,12 +112,9 @@ uv run point-filter-gui
 
 ## 7. GUI 画面キャプチャ
 
-後で GUI の画面キャプチャを README に載せる想定です。  
-配置先は次を想定しています。
+現在の GUI 画面です。
 
-- `docs/images/gui-main.png`
-
-画像を追加するときは、このファイル名に合わせれば README 側の修正が最小で済みます。
+![GUI メイン画面](docs/images/gui-main.png)
 
 ## 8. CLI の基本例
 
