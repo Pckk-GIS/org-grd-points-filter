@@ -84,7 +84,7 @@ def _build_region_inputs(
     if legacy_region_csv is not None:
         combined_files.append(legacy_region_csv)
     if not combined_files:
-        combined_files = [Path("data/regions.csv")]
+        combined_files = [Path("data/sample_region/regions.csv")]
 
     layers_by_name: dict[str, str] = {}
     for layer_spec in region_layers:

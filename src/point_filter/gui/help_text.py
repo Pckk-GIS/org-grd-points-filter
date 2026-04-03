@@ -111,8 +111,8 @@ ID002 124.0 457.2 12.1
 同じ処理はコマンドラインからも実行できます。
 
 ```bash
-uv run point-filter --region-file data/regions.csv --input-dir input --output-dir output --x-col 2 --y-col 3 --z-col 4
-uv run point-filter --region-file data/regions.csv --region-file data/areas.shp --region-file data/zones.gpkg --region-layer zones.gpkg=target_layer --input-dir input --output-dir output --org-x-col 2 --org-y-col 3 --org-z-col 4 --grd-x-col 1 --grd-y-col 2 --grd-z-col 3
+uv run point-filter --region-file data/sample_region/regions.csv --input-dir input --output-dir output --x-col 2 --y-col 3 --z-col 4
+uv run point-filter --region-file data/sample_region/regions.csv --region-file data/sample_region/regions_sample.shp --region-file data/sample_region/regions_sample.gpkg --region-layer regions_sample.gpkg=regions --input-dir input --output-dir output --org-x-col 2 --org-y-col 3 --org-z-col 4 --grd-x-col 1 --grd-y-col 2 --grd-z-col 3
 ```
 
 開発中に `main.py` から直接起動する場合は、同じ引数を使えます。

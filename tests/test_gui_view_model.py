@@ -8,9 +8,11 @@ def test_default_state_builds_app_config():
     state = default_state()
     config = build_app_config(state)
 
-    assert str(config.primary_region_input.path).endswith("data\\regions.csv") or str(
-        config.primary_region_input.path
-    ).endswith("data/regions.csv")
+    assert str(config.primary_region_input.path).endswith(
+        "data\\sample_region\\regions.csv"
+    ) or str(config.primary_region_input.path).endswith(
+        "data/sample_region/regions.csv"
+    )
     assert len(config.region_inputs) == 1
     assert config.primary_region_input.layer is None
     assert config.org_x_col == 2

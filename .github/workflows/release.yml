@@ -1,0 +1,114 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "リリース対象タグ (例: v0.4.0)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+
+    env:
+      PYTHON_VERSION: "3.13"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set release tag
+        id: tag
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Verify tag and project version
+        id: version
+        shell: python
+        run: |
+          import os
+          import tomllib
+          from pathlib import Path
+
+          tag = "${{ steps.tag.outputs.value }}"
+          if not tag.startswith("v"):
+              raise SystemExit(f"タグ形式が不正です: {tag}")
+
+          version = tag[1:]
+          pyproject = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+          project_version = pyproject["project"]["version"]
+          if version != project_version:
+              raise SystemExit(
+                  f"タグ {tag} と pyproject.toml の version {project_version} が一致しません。"
+              )
+
+          github_output = Path(os.environ["GITHUB_OUTPUT"])
+          with github_output.open("a", encoding="utf-8") as handle:
+              handle.write(f"version={version}\n")
+
+      - name: Sync dependencies
+        run: uv sync --dev
+
+      - name: Run checks
+        run: |
+          uv run pytest -q
+          uv run ruff check .
+          uv run pyright
+
+      - name: Build Rust CLI
+        run: cargo build --release -p point-filter-cli --manifest-path point-filter-rs/Cargo.toml
+
+      - name: Build GUI
+        run: uv run pyinstaller -y point-filter-gui.spec
+
+      - name: Archive GUI distribution
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $distDir = Join-Path $PWD "dist\point-filter-gui-v$version"
+          $zipPath = Join-Path $PWD "dist\point-filter-gui-v$version.zip"
+          if (Test-Path $zipPath) {
+            Remove-Item $zipPath -Force
+          }
+          Compress-Archive -Path (Join-Path $distDir '*') -DestinationPath $zipPath
+
+      - name: Extract release notes
+        shell: pwsh
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          uv run python scripts/extract_changelog.py CHANGELOG.md $version | Out-File -FilePath release_notes.md -Encoding utf8
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.value }}
+          name: ${{ steps.tag.outputs.value }}
+          body_path: release_notes.md
+          files: |
+            dist/point-filter-gui-v${{ steps.version.outputs.version }}.zip

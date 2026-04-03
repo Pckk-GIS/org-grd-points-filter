@@ -22,7 +22,7 @@ DEFAULT_GRD_Z_COL = "4"
 def default_state() -> GuiState:
     """GUI 起動時に使う既定値を返す。"""
     return GuiState(
-        region_inputs=[GuiRegionInput(path="data/regions.csv")],
+        region_inputs=[GuiRegionInput(path="data/sample_region/regions.csv")],
         input_dir=DEFAULT_INPUT_DIR,
         output_dir=DEFAULT_OUTPUT_DIR,
         org_x_col=DEFAULT_ORG_X_COL,
