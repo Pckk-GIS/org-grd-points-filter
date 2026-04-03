@@ -287,8 +287,13 @@ def process(
     require_positive_column_index(config.grd_y_col, "grd Y")
     require_positive_column_index(config.grd_z_col, "grd Z")
 
-    regions = load_regions(config.region_csv)
+    region_result = load_regions(config.region_inputs)
+    regions = region_result.regions
     region_ids = [region.region_id for region in regions]
+    for summary in region_result.summaries:
+        _emit(progress_callback, "region_file_loaded", summary)
+    for warning in region_result.warnings:
+        _emit(progress_callback, "warning", {"message": warning})
     _emit(
         progress_callback,
         "regions_loaded",

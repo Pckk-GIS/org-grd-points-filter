@@ -42,11 +42,22 @@ def run_rust_engine(
     config: AppConfig, *, rust_command: Sequence[str] | None = None
 ) -> ProcessingReport:
     """Rust CLI を subprocess で呼び出して処理を実行する。"""
+    if len(config.region_inputs) != 1:
+        raise ConfigurationError(
+            "Rust engine does not support multiple region files yet."
+        )
+    if config.primary_region_input.path.suffix.lower() != ".csv":
+        raise ConfigurationError(
+            "Rust engine does not support vector region files yet."
+        )
+    if config.primary_region_input.layer:
+        raise ConfigurationError("Rust engine does not support region layers yet.")
+
     resolved_command, command_cwd = _resolve_rust_command(rust_command)
     command = [
         *resolved_command,
         "--region-csv",
-        str(config.region_csv),
+        str(config.primary_region_input.path),
         "--input-dir",
         str(config.input_dir),
         "--output-dir",
@@ -134,7 +145,9 @@ def _resolve_rust_command(override: Sequence[str] | None) -> ResolvedRustCommand
 
 
 def _build_report_from_outputs(config: AppConfig) -> ProcessingReport:
-    region_ids = [region.region_id for region in load_regions(config.region_csv)]
+    region_ids = [
+        region.region_id for region in load_regions(config.region_inputs).regions
+    ]
     input_files: dict[InputSystem, int] = {
         "org": len(list(config.input_dir.glob("*_org.txt"))),
         "grd": len(list(config.input_dir.glob("*_grd.txt"))),

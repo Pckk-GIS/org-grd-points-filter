@@ -8,20 +8,27 @@ point-filter 使い方
 
 1. このツールでできること
 このツールは、入力フォルダにある点群テキストを読み込み、
-領域定義に基づいて点を振り分け、`org` と `grd` を別々に抽出するツールです。
+複数の領域定義ファイルに基づいて点を振り分け、`org` と `grd` を別々に抽出するツールです。
 GUI から操作しても、CLI から操作しても、内部では同じ設定を使います。
 
 2. まず最初に必要なもの
-- 領域定義 CSV 1 ファイル
+- 領域定義ファイル 1 個以上
 - 入力フォルダ
 - 出力フォルダ
 - org 用の X / Y / Z 列番号
 - grd 用の X / Y / Z 列番号
 
-3. 領域定義 CSV の考え方
-領域定義 CSV は `region_id,x,y` 形式です。
+3. 領域定義ファイルの考え方
+領域定義ファイルは次を受け付けます。
+
+- CSV
+- SHP
+- GPKG
+
+複数ファイルを同時に指定できます。
+
+CSV は `region_id,x,y` 形式です。
 ヘッダ行は必要です。
-複数の `region_id` を使って、複数領域を定義します。
 各 `region_id` に属する行は、その領域を作るための頂点候補です。
 
 重要:
@@ -30,6 +37,8 @@ GUI から操作しても、CLI から操作しても、内部では同じ設定
 - ただし各 `region_id` に入れる点は、その領域の外周を構成する頂点だけにしてください。
 - 内側の点、辺の途中の点、重複点が混ざるとエラーになります。
 - 頂点順はツール側で自動的に決めます。
+- SHP / GPKG は `Polygon` のみ対応です。
+- `MultiPolygon` や `Point` / `LineString` はエラーです。
 
 CSV 例:
 
@@ -49,7 +58,21 @@ region_id,x,y
 3,-26100.000,-39400.000
 ```
 
-4. 入力テキストの考え方
+4. ベクタ領域ファイルの考え方
+SHP / GPKG は 1 フィーチャ = 1 領域として扱います。
+`region_id` はユーザー入力ではなく、ツール側で自動生成します。
+
+- SHP: `ファイル名_連番`
+- GPKG: `ファイル名_レイヤ名_連番`
+
+GPKG の場合:
+- レイヤが 1 件だけなら自動でそのレイヤを使います。
+- レイヤが複数ある場合は GUI のプルダウンから選択します。
+
+CRS 変換はしません。
+ベクタ領域ファイルに CRS が入っている場合は警告を出しますが、処理は継続します。
+
+5. 入力テキストの考え方
 入力フォルダには、点群テキストが複数入っています。
 ファイル名の末尾で系統を判定します。
 
@@ -74,43 +97,49 @@ ID001 123.4 456.7 12.3
 ID002 124.0 457.2 12.1
 ```
 
-5. GUI の使い方
-1) `領域CSV` を選びます。
-2) `入力フォルダ` を選びます。
-3) `出力フォルダ` を選びます。
-4) `org` と `grd` の列番号をそれぞれ入力します。
-5) 入力プレビューを確認します。
-6) `実行` を押します。
-7) 画面下部のログで進捗と結果を確認します。
+6. GUI の使い方
+1) `領域ファイル` を追加します。複数追加できます。
+2) GPKG が含まれる場合は、必要に応じてレイヤを選びます。
+3) `入力フォルダ` を選びます。
+4) `出力フォルダ` を選びます。
+5) `org` と `grd` の列番号をそれぞれ入力します。
+6) 入力プレビューを確認します。
+7) `実行` を押します。
+8) 画面下部のログで進捗と結果を確認します。
 
-6. CLI の使い方
+7. CLI の使い方
 同じ処理はコマンドラインからも実行できます。
 
 ```bash
-uv run point-filter --region-csv data/regions.csv --input-dir input --output-dir output --x-col 2 --y-col 3 --z-col 4
-uv run point-filter --region-csv data/regions.csv --input-dir input --output-dir output --org-x-col 2 --org-y-col 3 --org-z-col 4 --grd-x-col 1 --grd-y-col 2 --grd-z-col 3
+uv run point-filter --region-file data/regions.csv --input-dir input --output-dir output --x-col 2 --y-col 3 --z-col 4
+uv run point-filter --region-file data/regions.csv --region-file data/areas.shp --region-file data/zones.gpkg --region-layer zones.gpkg=target_layer --input-dir input --output-dir output --org-x-col 2 --org-y-col 3 --org-z-col 4 --grd-x-col 1 --grd-y-col 2 --grd-z-col 3
 ```
 
 開発中に `main.py` から直接起動する場合は、同じ引数を使えます。
 
-7. 出力ファイル
-出力は `region_id` ごとに作成されます。
+補足:
+- `--region-csv` は旧引数として引き続き使えます。
+- Rust エンジンは現在 CSV 1 ファイルだけ対応です。SHP / GPKG や複数ファイル指定では使えません。
 
-- `org_region4.txt`
-- `org_region5.txt`
-- `grd_region4.txt`
-- `grd_region5.txt`
+8. 出力ファイル
+出力は自動生成された `region_id` ごとに作成されます。
+
+- `org_regionregions_4.txt`
+- `org_regionareas_1.txt`
+- `grd_regionzones_target_layer_2.txt`
 
 ポイント:
 - `org` と `grd` は別々に出力されます。
 - 1 点が複数領域に入る場合は、該当するすべての領域へ出力します。
 - 境界上の点は含めます。
 
-8. よくあるエラー
+9. よくあるエラー
 - `Region CSV header must be ('region_id', 'x', 'y')`  
   -> CSV の先頭行を `region_id,x,y` にしてください。
 - `Region contains interior or colinear points`  
   -> その `region_id` に、外周頂点以外の点が混ざっています。
+- `Only Polygon is supported`  
+  -> SHP / GPKG に Polygon 以外のジオメトリが入っています。
 - `Region contains duplicate points`  
   -> 同じ座標を 2 回以上入れています。
 - `Region has zero area`  
@@ -118,7 +147,7 @@ uv run point-filter --region-csv data/regions.csv --input-dir input --output-dir
 - `input` 側の列番号エラー  
   -> 指定した列番号が存在しないか、数値に変換できません。
 
-9. 運用上の注意
+10. 運用上の注意
 - 領域は凸多角形前提です。
 - 領域 CSV の行順は自由です。
 - `region_id` ごとに正しい頂点だけを入れてください。
@@ -127,10 +156,11 @@ uv run point-filter --region-csv data/regions.csv --input-dir input --output-dir
 - 高速化のため、`org` / `grd` は同じ範囲前提で file_id 単位のスキップ判定を行います。
 - 前提が崩れたデータでは、取りこぼしの可能性があります。
 
-10. 迷ったときの確認順
-1) 領域 CSV のヘッダが正しいか
-2) `region_id` が期待どおり定義されているか
-3) 領域 CSV に内側の点や重複点が混ざっていないか
-4) 入力ファイル名が `*_org.txt` / `*_grd.txt` になっているか
-5) org / grd それぞれの列番号が 1 始まりで正しいか
+11. 迷ったときの確認順
+1) 領域ファイルの形式が正しいか
+2) CSV のヘッダが `region_id,x,y` になっているか
+3) SHP / GPKG が Polygon だけで構成されているか
+4) GPKG のレイヤ選択が正しいか
+5) 入力ファイル名が `*_org.txt` / `*_grd.txt` になっているか
+6) org / grd それぞれの列番号が 1 始まりで正しいか
 """

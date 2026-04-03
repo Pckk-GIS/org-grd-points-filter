@@ -1,14 +1,24 @@
 """CLI と GUI で共有する設定値を定義する。"""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
+
+
+@dataclass(frozen=True, slots=True)
+class RegionInput:
+    """1 件の領域定義入力を表す。"""
+
+    path: Path
+    layer: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class AppConfig:
     """点群抽出に必要な設定をまとめた値オブジェクト。"""
 
-    region_csv: Path
+    region_inputs: tuple[RegionInput, ...]
     input_dir: Path
     output_dir: Path
     org_x_col: int
@@ -25,3 +35,8 @@ class AppConfig:
         if system == "grd":
             return self.grd_x_col, self.grd_y_col, self.grd_z_col
         raise ValueError(f"unknown system: {system}")
+
+    @property
+    def primary_region_input(self) -> RegionInput:
+        """先頭の領域入力を返す。"""
+        return self.region_inputs[0]

@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from ..config import AppConfig
+from ..config import AppConfig, RegionInput
 from ..validation import ConfigurationError
-from .state import GuiState
+from .state import GuiRegionInput, GuiState
 
 
-DEFAULT_REGION_CSV = "data/regions.csv"
 DEFAULT_INPUT_DIR = "input"
 DEFAULT_OUTPUT_DIR = "output"
 DEFAULT_ORG_X_COL = "2"
@@ -23,7 +22,7 @@ DEFAULT_GRD_Z_COL = "4"
 def default_state() -> GuiState:
     """GUI 起動時に使う既定値を返す。"""
     return GuiState(
-        region_csv=DEFAULT_REGION_CSV,
+        region_inputs=[GuiRegionInput(path="data/regions.csv")],
         input_dir=DEFAULT_INPUT_DIR,
         output_dir=DEFAULT_OUTPUT_DIR,
         org_x_col=DEFAULT_ORG_X_COL,
@@ -51,8 +50,11 @@ def _parse_positive_int(value: str, label: str) -> int:
 
 def build_app_config(state: GuiState) -> AppConfig:
     """GUI の状態から共通設定オブジェクトを作る。"""
+    region_inputs = tuple(_build_region_inputs(state.region_inputs))
+    if not region_inputs:
+        raise ConfigurationError("At least one region file must be specified")
     return AppConfig(
-        region_csv=Path(state.region_csv),
+        region_inputs=region_inputs,
         input_dir=Path(state.input_dir),
         output_dir=Path(state.output_dir),
         org_x_col=_parse_positive_int(state.org_x_col, "org X"),
@@ -62,3 +64,15 @@ def build_app_config(state: GuiState) -> AppConfig:
         grd_y_col=_parse_positive_int(state.grd_y_col, "grd Y"),
         grd_z_col=_parse_positive_int(state.grd_z_col, "grd Z"),
     )
+
+
+def _build_region_inputs(gui_inputs: list[GuiRegionInput]) -> list[RegionInput]:
+    built: list[RegionInput] = []
+    for gui_input in gui_inputs:
+        path = gui_input.path.strip()
+        if not path:
+            continue
+        built.append(
+            RegionInput(path=Path(path), layer=gui_input.layer.strip() or None)
+        )
+    return built

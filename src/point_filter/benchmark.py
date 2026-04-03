@@ -8,7 +8,7 @@ from pathlib import Path
 from time import perf_counter
 from typing import Sequence
 
-from .config import AppConfig
+from .config import AppConfig, RegionInput
 from .engine import EngineName, run_engine
 from .region_loader import load_regions
 
@@ -16,7 +16,7 @@ from .region_loader import load_regions
 def build_parser() -> argparse.ArgumentParser:
     """ベンチマーク用の CLI 引数パーサーを構築する。"""
     parser = argparse.ArgumentParser(description="Benchmark Python and Rust engines.")
-    parser.add_argument("--region-csv", type=Path, default=Path("data/regions.csv"))
+    parser.add_argument("--region-file", type=Path, default=Path("data/regions.csv"))
     parser.add_argument("--input-dir", type=Path, default=Path("input"))
     parser.add_argument("--output-root", type=Path, default=Path("output-bench"))
     parser.add_argument("--x-col", type=int, default=2)
@@ -37,7 +37,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     config = AppConfig(
-        region_csv=args.region_csv,
+        region_inputs=(RegionInput(path=args.region_file),),
         input_dir=args.input_dir,
         output_dir=args.output_root / "python",
         org_x_col=args.org_x_col or args.x_col,
@@ -51,7 +51,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     python_durations: list[float] = []
     rust_durations: list[float] = []
     rust_config = AppConfig(
-        region_csv=config.region_csv,
+        region_inputs=config.region_inputs,
         input_dir=config.input_dir,
         output_dir=args.output_root / "rust",
         org_x_col=config.org_x_col,
@@ -70,7 +70,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         rust_durations.append(_measure("rust", rust_config))
         print(f"round {index + 1} complete")
 
-    _compare_outputs(config.region_csv, config.output_dir, rust_config.output_dir)
+    _compare_outputs(config.region_inputs, config.output_dir, rust_config.output_dir)
     python_avg = sum(python_durations) / len(python_durations)
     rust_avg = sum(rust_durations) / len(rust_durations)
     print(f"python avg: {python_avg:.3f}s")
@@ -92,8 +92,10 @@ def _reset_output_dir(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
 
-def _compare_outputs(region_csv: Path, left_dir: Path, right_dir: Path) -> None:
-    for region in load_regions(region_csv):
+def _compare_outputs(
+    region_inputs: tuple[RegionInput, ...], left_dir: Path, right_dir: Path
+) -> None:
+    for region in load_regions(region_inputs).regions:
         for system in ("org", "grd"):
             name = f"{system}_region{region.region_id}.txt"
             left = (left_dir / name).read_bytes()
