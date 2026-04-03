@@ -45,9 +45,6 @@ jobs:
       - name: Setup uv
         uses: astral-sh/setup-uv@v5
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
       - name: Verify tag and project version
         id: version
         shell: python
@@ -81,9 +78,6 @@ jobs:
           uv run ruff check .
           uv run pyright
 
-      - name: Build Rust CLI
-        run: cargo build --release -p point-filter-cli --manifest-path point-filter-rs/Cargo.toml
-
       - name: Build GUI
         run: uv run pyinstaller -y point-filter-gui.spec
 
@@ -102,7 +96,7 @@ jobs:
         shell: pwsh
         run: |
           $version = "${{ steps.version.outputs.version }}"
-          uv run python scripts/extract_changelog.py CHANGELOG.md $version | Out-File -FilePath release_notes.md -Encoding utf8
+          uv run python scripts/extract_changelog.py CHANGELOG.md $version release_notes.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

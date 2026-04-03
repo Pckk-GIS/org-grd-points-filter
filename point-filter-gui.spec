@@ -11,11 +11,15 @@ with (PROJECT_ROOT / "pyproject.toml").open("rb") as handle:
     version = tomllib.load(handle)["project"]["version"]
 
 app_name = f"point-filter-gui-v{version}"
+rust_cli = PROJECT_ROOT / "point-filter-rs" / "target" / "release" / "point-filter-cli.exe"
+binaries = []
+if rust_cli.exists():
+    binaries.append((str(rust_cli), "."))
 
 a = Analysis(
     ["gui_main.py"],
     pathex=["src"],
-    binaries=[("point-filter-rs/target/release/point-filter-cli.exe", "."),],
+    binaries=binaries,
     datas=[],
     hiddenimports=[],
     hookspath=[],

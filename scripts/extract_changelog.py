@@ -18,12 +18,19 @@ def extract_section(changelog_path: Path, version: str) -> str:
 
 
 def main() -> int:
-    if len(sys.argv) != 3:
-        raise SystemExit("usage: extract_changelog.py <CHANGELOG.md> <version>")
+    if len(sys.argv) not in {3, 4}:
+        raise SystemExit(
+            "usage: extract_changelog.py <CHANGELOG.md> <version> [output_path]"
+        )
 
     changelog_path = Path(sys.argv[1])
     version = sys.argv[2]
-    print(extract_section(changelog_path, version), end="")
+    content = extract_section(changelog_path, version)
+    if len(sys.argv) == 4:
+        output_path = Path(sys.argv[3])
+        output_path.write_text(content, encoding="utf-8")
+    else:
+        sys.stdout.buffer.write(content.encode("utf-8"))
     return 0
 
 
